@@ -13,11 +13,18 @@
     $imageCrumbs = $this->Breadcrumb->replace($imageCrumbs, 'show', $this->Search->getShow());
   }
 
+  // test if we want to hide the preview
+  $src = Router::url("/media/thumb/".$media['Media']['id']);
+  $categories = $this->ImageData->getMediaFields($media)['category'];
+  if (in_array('special:hiddenthumb', $categories)) {
+      $src = Router::url("/img/blurred.jpg");
+  }
+
   // image centrering from http://www.brunildo.org/test/img_center.html
   echo '<div class="preview"><span></span>';
   echo $this->Html->tag('a',
     $this->Html->tag('img', false, array(
-      'src' => Router::url("/media/thumb/".$media['Media']['id']),
+      'src' => $src,
       'width' => $size[0], 'height' => $size[1],
       'alt' => $media['Media']['name'])),
     array('href' => Router::url("/images/view/".$media['Media']['id'].'/'.$this->Breadcrumb->params($imageCrumbs))));
