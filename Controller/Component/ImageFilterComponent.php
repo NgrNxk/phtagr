@@ -48,6 +48,10 @@ class ImageFilterComponent extends BaseFilterComponent {
 
     if ($this->Exiftool->isEnabled()) {
       $meta = $this->Exiftool->readMetaData($filename);
+      $name = basename($filename);
+      if ($name != $meta['FileName']) {
+        $this->log(">>> File $name differs from {$meta['FileName']}", 'import');
+      }
     } else {
       $meta = $this->_readMetaDataGetId3($filename);
     }
@@ -77,6 +81,9 @@ class ImageFilterComponent extends BaseFilterComponent {
     } else {
       $this->_extractImageDataGetId3($media, $meta);
     }
+    if ($media['Media']['name'] != basename($filename)) {
+        $this->log(">>> File ". basename($filename) . " differs from {$media['Media']['name']} (extractImageData)", 'import');
+    }
     // fallback for image size
     if (!isset($media['Media']['width']) || $media['Media']['width'] == 0 ||
       !isset($media['Media']['height']) || $media['Media']['height'] == 0) {
@@ -85,14 +92,14 @@ class ImageFilterComponent extends BaseFilterComponent {
         $media['Media']['width'] = $size[0];
         $media['Media']['height'] = $size[1];
       } else {
-        Logger::warn("Could not determine image size of $filename");
+        CakeLog::warning("Could not determine image size of $filename");
       }
     }
     if ($options['noSave']) {
       return $media;
     } elseif (!$this->Media->save($media)) {
-      Logger::err("Could not save Media");
-      Logger::trace($media);
+      CakeLog::error("Could not save Media");
+      CakeLog::debug($media);
       $this->FilterManager->addError($filename, 'MediaSaveError');
       return false;
     }
@@ -103,19 +110,14 @@ class ImageFilterComponent extends BaseFilterComponent {
         $this->FilterManager->addError($filename, 'FileSaveError');
         return false;
       } else {
-        Logger::info("Created new Media (id $mediaId)");
+        CakeLog::info("Created new Media (id $mediaId)");
         $media = $this->Media->findById($mediaId);
       }
     } else {
-      Logger::verbose("Updated media (id ".$media['Media']['id'].")");
+      CakeLog::debug("Updated media (id ".$media['Media']['id'].")");
     }
     $this->controller->MyFile->updateReaded($file);
     $this->controller->MyFile->setFlag($file, FILE_FLAG_DEPENDENT);
-
-    if ($this->controller->getOption('xmp.use.sidecar', 0)) {
-      //$hasSidecar = $this->SidecarFilter->hasSidecar($filename, false);
-      //link sidecar to media(to main file); really needed here?
-    }
 
     return $media;
   }
@@ -199,7 +201,7 @@ class ImageFilterComponent extends BaseFilterComponent {
     $v['shutter'] = $this->_computeSutter($this->_extract($data, 'jpg/exif/EXIF/ShutterSpeedValue', null));
     $v['model'] = $this->_extract($data, 'jpg/exif/IFD0/Model', null);
     $v['iso'] = $this->_extract($data, 'jpg/exif/EXIF/ISOSpeedRatings', null);
-    //Logger::debug($data);
+    //CakeLog::debug($data);
 
     // fetch GPS coordinates
     $latitude = $this->_computeGps($this->_extract($data, 'jpg/exif/GPS/GPSLatitude', null));
@@ -243,11 +245,11 @@ class ImageFilterComponent extends BaseFilterComponent {
    */
   public function write(&$file, &$media, $options = array()) {
     if (!$file || !$media) {
-      Logger::err("File or media is empty");
+      CakeLog::error("File or media is empty");
       return false;
     }
     if (!$this->Exiftool->isEnabled()) {
-      Logger::err("Exiftool is not defined. Abored writing of meta data");
+      CakeLog::error("Exiftool is not defined. Abored writing of meta data");
       return false;
     }
     $filename = $this->controller->MyFile->getFilename($file);
@@ -264,28 +266,28 @@ class ImageFilterComponent extends BaseFilterComponent {
 
     if (!file_exists($filename) || !is_writeable(dirname($filename)) || !is_writeable($filename)) {
       $id = isset($media['Media']['id']) ? $media['Media']['id'] : 0;
-      Logger::warn("File: $filename (#$id) does not exists nor is readable");
+      CakeLog::warning("File: $filename (#$id) does not exists nor is readable");
       return false;
     }
 
     $data = $this->Exiftool->readMetaData($filename);
     if ($data === false) {
-      Logger::warn("File has no metadata!");
+      CakeLog::warning("File has no metadata!");
       return false;
     }
 
     $args = $this->Exiftool->createExportArguments($data, $media, $filename);
     if (!count($args)) {
-      Logger::debug("File '$filename' has no metadata changes");
+      CakeLog::debug("File '$filename' has no metadata changes");
       if (!$this->Media->deleteFlag($media, MEDIA_FLAG_DIRTY)) {
-        Logger::warn("Could not update image data of media {$media['Media']['id']}");
+        CakeLog::warning("Could not update image data of media {$media['Media']['id']}");
       }
       return true;
     }
 
     $result = $this->Exiftool->writeMetaData($filename, $args);
     if ($result !== true) {
-      Logger::warn("Could not write meta data. Result is " . join(", ", (array) $result));
+      CakeLog::warning("Could not write meta data. Result is " . join(", ", (array) $result));
       return false;
     }
 
@@ -330,8 +332,8 @@ class ImageFilterComponent extends BaseFilterComponent {
     $data = $getId3->analyze($filename);
     if (isset($data['error'])) {
       $this->FilterManager->addError($filename, 'VendorError', '', $data['error']);
-      Logger::err("GetId3 analyzing error: {$data['error'][0]}");
-      Logger::debug($data);
+      CakeLog::error("GetId3 analyzing error: {$data['error'][0]}");
+      CakeLog::debug($data);
       return false;
     }
     return $data;

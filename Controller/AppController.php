@@ -15,7 +15,6 @@
  * @license       GPL-2.0 (http://www.opensource.org/licenses/GPL-2.0)
  */
 
-App::uses('Logger', 'Lib');
 App::uses('Controller', 'Controller');
 
 class AppController extends Controller
@@ -24,20 +23,20 @@ class AppController extends Controller
   var $components = array('Session', 'Cookie', 'Feed', 'RequestHandler', 'Menu');
   var $uses = array('User', 'Option');
 
-  var $_nobody = null;
-  var $_user = null;
-
-  /** Calls _checkSession() to check the credentials of the user
-    @see _checkSession() */
+  /**
+   * Calls _checkSession() to check the credentials of the user
+   *
+   * @see _checkSession()
+   */
   public function beforeFilter() {
     parent::beforeFilter();
-    $this->_checkSession();
+    $this->__checkSession();
     $this->Feed->add('/explorer/rss', array('title' => __('Recent photos')));
     $this->Feed->add('/explorer/media', array('title' =>  __('Media RSS of recent photos'), 'id' => 'gallery'));
     $this->Feed->add('/comment/rss', array('title' => __('Recent comments')));
 
-    $this->_setMainMenu();
-    $this->_setTopMenu();
+    $this->__setMainMenu();
+    $this->__setTopMenu();
 
     if (isset($this->request->params['named']['mobile'])) {
       // Allow 0, false, off as parameter
@@ -47,7 +46,7 @@ class AppController extends Controller
     }
   }
 
-  public function _setMainMenu() {
+  private function __setMainMenu() {
     $this->Menu->setCurrentMenu('main-menu');
     $this->Menu->addItem(__('Home'), "/");
     $this->Menu->addItem(__('Explorer'), array('controller' => 'explorer', 'action' => 'index'));
@@ -60,7 +59,7 @@ class AppController extends Controller
     }
   }
 
-  public function _setTopMenu() {
+  private function __setTopMenu() {
     $this->Menu->setCurrentMenu('top-menu');
     $role = $this->getUserRole();
     if ($role == ROLE_NOBODY) {
@@ -93,7 +92,7 @@ class AppController extends Controller
     }
   }
 
-  public function _checkCookie() {
+  private function __checkCookie() {
     $this->Cookie->name = 'phTagr';
     $id = $this->Cookie->read('user');
     if (is_numeric($id)) {
@@ -103,7 +102,7 @@ class AppController extends Controller
     }
   }
 
-  public function _checkKey() {
+  private function __checkKey() {
     if (!isset($this->request->params['named']['key'])) {
       return false;
     }
@@ -123,10 +122,8 @@ class AppController extends Controller
   /**
    * Checks a cookie for a valid user id. If a id found, the user is load to
    * the session
-   * @todo Check expired user
    */
-  public function _checkSession() {
-    //$this->Session->activate();
+  private function __checkSession() {
     if (!$this->Session->check('Session.requestCount')) {
       $this->Session->write('Session.requestCount', 1);
       $this->Session->write('Session.start', time());
@@ -136,74 +133,57 @@ class AppController extends Controller
       $this->Session->write('Session.requestCount', $count + 1);
     }
 
-    if ($this->Session->check('User.id')) {
+    $keyUserId = $this->__checkKey();
+    $user = $this->User->readSession($this->Session);
+    if ($user && $user['User']['id'] >= 0 && $keyUserId == $user['User']['id']) {
       return true;
     }
 
-    $authType = 'Cookie';
-    $id = $this->_checkCookie();
-    if (!$id) {
-      $id = $this->_checkKey();
-      $authType = 'Key';
+    $authType = 'Session';
+    $userId = 0;
+    if ($keyUserId) {
+      $userId = $keyUserId;
+      $authType = 'AuthKey';
+    } else {
+      $userId = $this->__checkCookie();
+      $authType = 'Cookie';
     }
 
-    if (!$id) {
+    if (!$userId) {
       return false;
     }
 
     // Fetch User
-    $user = $this->User->findById($id);
+    $user = $this->User->findById($userId);
     if (!$user) {
-      Logger::err("Could not find user with given id '$id' (via $authType)");
+      CakeLog::error("Could not find user with given id '$userId' (via $authType)");
       return false;
     }
 
     if ($this->User->isExpired($user)) {
-      Logger::warn("User account of '{$user['User']['username']}' (id {$user['User']['id']}) is expired!");
+      CakeLog::warning("User account of '{$user['User']['username']}' (id {$user['User']['id']}) is expired!");
       return false;
     }
 
     $this->User->writeSession($user, $this->Session);
-    Logger::info("User '{$user['User']['username']}' (id {$user['User']['id']}) authenticated via $authType!");
+    CakeLog::info("User '{$user['User']['username']}' (id {$user['User']['id']}) authenticated via $authType!");
 
     return true;
   }
 
   /**
-   * Checks the session for valid user. If no user is found, it checks for a
-   * valid cookie
+   * Returns the current user
    *
-   * @return True if the correct session correspond to an user
+   * @return array
    */
-  public function _checkUser() {
-    if (!$this->_checkSession()) {
-      return false;
-    }
-
-    if ($this->_user) {
-      return true;
-    }
-
-    $userId = $this->Session->read('User.id');
-    $user = $this->User->findById($userId);
-    if (!$user) {
-      return false;
-    }
-
-    $this->_user = $user;
-    return true;
-  }
-
   public function &getUser() {
-    if (!$this->_checkUser() || !$this->_user) {
-      if (!$this->_nobody && isset($this->User)) {
-        $this->_nobody = $this->User->getNobody();
-      } elseif (!$this->_nobody) {
-        $this->_nobody = array('User' => array('username' => '', 'password' => '', 'role' => ROLE_NOBODY));
-      }
-      return $this->_nobody;
+    $user = $this->User->readSession($this->Session);
+    if (!$user) {
+      $nobody = $this->User->getNobody();
+      $this->User->writeSession($nobody, $this->Session);
     }
-    return $this->_user;
+    $user = $this->User->readSession($this->Session);
+    return $user;
   }
 
   public function getUserRole() {
@@ -242,13 +222,21 @@ class AppController extends Controller
     return true;
   }
 
+  /**
+   * Returns the option of current user
+   *
+   * @param string $name Option name
+   * @param mixed $default Default value
+   * @return mixed
+   */
   public function getOption($name, $default=null) {
     $user = $this->getUser();
     return $this->Option->getValue($user, $name, $default);
   }
 
-  /** Load a component
-    */
+  /**
+   * Load a component
+   */
   public function loadComponent($componentName, &$parent = null) {
     if (is_array($componentName)) {
       $loaded = true;
@@ -269,7 +257,7 @@ class AppController extends Controller
     }
     $component = $this->Components->load($componentName);
     if (!$component) {
-      Logger::warn("Could not load component $componentName");
+      CakeLog::warning("Could not load component $componentName");
       return false;
     }
     $parent->{$componentName} = $component;

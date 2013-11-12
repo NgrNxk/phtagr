@@ -83,11 +83,11 @@ class User extends AppModel {
             $size = $size * 1024 * 1024 * 1024;
             break;
           default:
-            Logger::err("Unknown unit {$matches[3]}");
+            CakeLog::error("Unknown unit {$matches[3]}");
         }
       }
       if ($size < 0) {
-        Logger::err("Size is negtive: $size");
+        CakeLog::error("Size is negtive: $size");
         return 0;
       }
       return $size;
@@ -143,27 +143,65 @@ class User extends AppModel {
   public function beforeDelete($cascade = true) {
     $id = $this->id;
     $this->bindModel(array('hasMany' => array('Media')));
-    Logger::info("Delete all image database entries of user $id");
+    CakeLog::info("Delete all image database entries of user $id");
     $this->Media->deleteFromUser($id);
 
     $this->bindModel(array('hasMany' => array('MyFile')));
     $this->MyFile->deleteAll("File.user_id = $id");
 
-    $dir = USER_DIR.$id;
-    Logger::info("Delete user directory of user $id: $dir");
+    $homeDir = Configure::read('user.home.dir');
+    $userDir = $homeDir . $id;
+    CakeLog::info("Delete user directory of user $id: $userDir");
     $folder = new Folder();
-    $folder->delete($dir);
+    $folder->delete($userDir);
 
     return true;
   }
 
-  public function writeSession(&$user, &$session) {
-    if (!$session || !isset($user['User']['id']) || !isset($user['User']['role']) || !isset($user['User']['username'])) {
-      return;
+  public function resetSession(&$session) {
+    $session->delete('user');
+  }
+
+  public function readSession(&$session) {
+    if ($session->check('user')) {
+      return $session->read('user');
     }
-    $session->write('User.id', $user['User']['id']);
-    $session->write('User.role', $user['User']['role']);
-    $session->write('User.username', $user['User']['username']);
+    $userId = $session->read('userId');
+    if ($userId >= 0) {
+      $user = $this->findById($userId);
+      if ($user) {
+        $this->writeSession($user, $session);
+        return $user;
+      }
+    }
+    return false;
+  }
+
+  public function writeSession(&$user, &$session) {
+    $oldUserId = $session->read('userId');
+    $session->write('user', $user);
+    $session->write('userId', $user['User']['id']);
+
+    $userId = $user['User']['id'];
+    if ($userId < 0) {
+      $session->delete('userIdStack');
+    } else if ($oldUserId >= 0 && $userId != $oldUserId) {
+      $stack = (array) $session->read('userIdStack');
+      $stack[] = $oldUserId;
+      $session->write('userIdStack', $stack);
+    }
+  }
+
+  public function destroySession(&$session) {
+    $stack = (array) $session->read('userIdStack');
+
+    $session->destroy();
+
+    if (count($stack)) {
+      $userId = array_pop($stack);
+      $session->write('userIdStack', $stack);
+      $session->write('userId', $userId);
+    }
   }
 
   public function hasAnyWithRole($role = ROLE_ADMIN) {
@@ -222,15 +260,16 @@ class User extends AppModel {
 
   public function getRootDir($data, $create = true) {
     if (!isset($data['User']['id'])) {
-      Logger::err("Data does not contain user's id");
+      CakeLog::error("Data does not contain user's id");
       return false;
     }
 
-    $rootDir = USER_DIR.$data['User']['id'].DS.'files'.DS;
+    $homeDir = Configure::read('user.home.dir');
+    $rootDir = $homeDir . $data['User']['id'] . DS . 'files' . DS;
     if ($create) {
       $folder = new Folder();
       if (!$folder->create($rootDir)) {
-        Logger::err("Could not create users root directory '$fileDir'");
+        CakeLog::error("Could not create users root directory '$rootDir'");
         return false;
       }
     }
@@ -305,4 +344,17 @@ class User extends AppModel {
     }
     return $this->find($findType, array('conditions' => $conditions, 'joins' => $joins, 'recusive' => $resusive, 'group' => 'User.id'));
   }
+
+  /**
+   * Extract ACL group ID of user
+   *
+   * @param array $user
+   * @return array List of group Ids for ACL
+   */
+  public function getAclGroupIds(&$user) {
+    $groupIds = Set::extract('/Group/id', $user);
+    $groupIds = am($groupIds, Set::extract('/Member/id', $user));
+    return $groupIds;
+  }
 }
+
