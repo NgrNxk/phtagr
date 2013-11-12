@@ -16,46 +16,10 @@
  * @license       GPL-2.0 (http://www.opensource.org/licenses/GPL-2.0)
  */
 
-App::uses('Media', 'Model');
-App::uses('User', 'Model');
-App::uses('PhtagrTestFactory', 'Test/Case');
+App::uses('AppControllerTestCase', 'Test/Case');
+App::uses('AppController', 'Controller');
 
-class ExplorerControllerTest extends ControllerTestCase {
-  /**
-   * Fixtures
-   *
-   * @var array
-   */
-  public $fixtures = array('app.file', 'app.media', 'app.user', 'app.group', 'app.groups_media',
-      'app.groups_user', 'app.option', 'app.guest', 'app.comment',
-      'app.fields_media', 'app.field', 'app.comment');
-
-  var $Factory;
-
-  /**
-   * setUp method
-   *
-   * @return void
-   */
-  public function setUp() {
-    parent::setUp();
-    $this->Factory = new PhtagrTestFactory();
-
-    $this->Media = ClassRegistry::init('Media');
-    $this->User = ClassRegistry::init('User');
-  }
-
-  /**
-   * tearDown method
-   *
-   * @return void
-   */
-  public function tearDown() {
-    unset($this->Media);
-    unset($this->User);
-
-    parent::tearDown();
-  }
+class ExplorerControllerTest extends AppControllerTestCase {
 
   public function testPoints() {
     $this->Media->save($this->Media->create(array('oacl' => ACL_READ_HIGH, 'latitude' => 48.342, 'longitude' => -8.858)));
@@ -139,7 +103,6 @@ class ExplorerControllerTest extends ControllerTestCase {
     $this->assertEqual($media['Media']['latitude'], 41.9021);
     $this->assertEqual($media['Media']['longitude'], 12.4540);
   }
-
 
   /**
    * Test that all new locations will be created for single media
@@ -225,7 +188,8 @@ class ExplorerControllerTest extends ControllerTestCase {
 
     // tag flower is a must, category nature is optional
     $this->testAction('/explorer/view/tag:+flower/category:nature', array('return' => 'vars'));
-    $this->assertEqual(Set::extract('/Media/id', $Explorer->request->data), array($media2['Media']['id'], $media1['Media']['id']));
+    $mediaIds = Set::extract('/Media/id', $Explorer->request->data);
+    $this->assertEqual($mediaIds, array($media2['Media']['id'], $media1['Media']['id']));
   }
 
   public function testSelectionUnlink() {

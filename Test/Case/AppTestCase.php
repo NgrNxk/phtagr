@@ -20,10 +20,8 @@ App::uses('CakeResponse', 'Network');
 App::uses('CakeRequest', 'Network');
 App::uses('Folder', 'Utility');
 
-App::uses('Logger', 'Lib');
-
-App::uses('PhtagrTestFactory', 'Test/Case');
-App::uses('PhtagrTestController', 'Test/Case');
+App::uses('AppTestFactory', 'Test/Case');
+App::uses('AppTestController', 'Test/Case');
 
 /**
  * Base test case for phtagr
@@ -33,7 +31,7 @@ App::uses('PhtagrTestController', 'Test/Case');
  * It loads a Controller with given models and components which are available
  * through the test.
  */
-class PhtagrTestCase extends CakeTestCase {
+class AppTestCase extends CakeTestCase {
 
   var $Factory;
   var $Controller;
@@ -47,9 +45,9 @@ class PhtagrTestCase extends CakeTestCase {
       'app.fields_media', 'app.field', 'app.comment');
 
   /**
-   * Name of test controller. Default is PhtagrTestController
+   * Name of test controller. Default is AppTestController
    */
-  var $testController = 'PhtagrTestController';
+  var $testController = 'AppTestController';
   /**
    * Auto start controller. It will call Controller::startupProcess()
    */
@@ -57,7 +55,8 @@ class PhtagrTestCase extends CakeTestCase {
 
   public function setUp() {
     parent::setUp();
-    $this->Factory = new PhtagrTestFactory();
+    Configure::write('user.home.dir', $this->createTestDir());
+    $this->Factory = new AppTestFactory();
 
     if ($this->testController) {
       $this->initTestController();
@@ -88,6 +87,17 @@ class PhtagrTestCase extends CakeTestCase {
 
   public function tearDown() {
     $this->Controller->shutdownProcess();
+
+    $uses = array_unique(am(array('User', 'Media', 'MyFile'), $this->uses));
+    foreach ($uses as $modelName) {
+      unset($this->Controller->{$modelName});
+      unset($this->{$modelName});
+    }
+    foreach ($this->components as $componentName) {
+      unset($this->Controller->{$componentName});
+      unset($this->{$componentName});
+    }
+    unset($this->Controller);
 
     $Folder = new Folder();
     foreach ($this->_tmpDirs as $path) {

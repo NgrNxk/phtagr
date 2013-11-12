@@ -37,18 +37,13 @@ class MediaController extends AppController
     parent::beforeFilter();
   }
 
-  public function beforeRender() {
-    parent::beforeRender();
-    $this->viewClass = 'Media';
-  }
-
   /**
    * Fetch the request headers. Getting headers sent by the client. Convert
    * header to lower case since it is case insensitive.
    *
    * @return Array of request header
    */
-  public function _getRequestHeaders() {
+  private function _getRequestHeaders() {
     $headers = array();
     if (function_exists('apache_request_headers')) {
       $headers = apache_request_headers();
@@ -72,7 +67,7 @@ class MediaController extends AppController
    *
    * @param filename filename of cache file
    */
-  public function _handleClientCache($filename) {
+  private function _handleClientCache($filename) {
     $cacheTime = filemtime($filename);
     $headers = $this->_getRequestHeaders();
     if (isset($headers['if-modified-since']) &&
@@ -96,7 +91,7 @@ class MediaController extends AppController
    * @return Media model data. If no media is found or access is denied it
    * responses 404
    */
-  public function _getMedia($id, $type = 'preview') {
+  private function _getMedia($id, $type = 'preview') {
     $user = $this->getUser();
     switch ($type) {
       case 'hd':
@@ -111,27 +106,27 @@ class MediaController extends AppController
     $this->Media->bindModel(array('hasMany' => array('GroupsMedia' => array())));
     $media = $this->Media->find('first', $query);
     if (!$media) {
-      Logger::verbose("Media not found or access denied for media $id");
+      CakeLog::debug("Media not found or access denied for media $id");
       $this->redirect(null, 403);
     }
 
     return $media;
   }
 
-  public function _sendPreview($id, $type) {
+  private function _sendPreview($id, $type) {
     $media = $this->_getMedia($id, $type);
     $preview = $this->PreviewManager->getPreview($media, $type);
     if (!$preview) {
-      Logger::err("Fetching preview type '{$type}' for {$this->Media->toString($media)} failed");
+      CakeLog::error("Fetching preview type '{$type}' for {$this->Media->toString($media)} failed");
       $this->redirect(null, 403);
     }
     $this->_handleClientCache($preview);
 
-    $this->set($this->MyFile->getMediaViewOptions($preview));
-    $this->viewClass = 'Media';
+    $this->response->file($preview);
+    return $this->response;
   }
 
-  public function _createFlashVideo($id) {
+  private function _createFlashVideo($id) {
     $id = intval($id);
     $media = $this->_getMedia($id, 'preview');
     $this->loadComponent('FlashVideo');
@@ -142,7 +137,7 @@ class MediaController extends AppController
     $flashFilename = $this->FlashVideo->create($media, $config);
 
     if (!is_file($flashFilename)) {
-      Logger::err("Could not create preview file {$flashFilename}");
+      CakeLog::error("Could not create preview file {$flashFilename}");
       $this->redirect(null, 500);
     }
 
@@ -150,31 +145,29 @@ class MediaController extends AppController
   }
 
   public function mini($id) {
-    $this->_sendPreview($id, 'mini');
+    return $this->_sendPreview($id, 'mini');
   }
 
   public function thumb($id)	{
-    $this->_sendPreview($id, 'thumb');
+    return $this->_sendPreview($id, 'thumb');
   }
 
   public function preview($id) {
-    $this->_sendPreview($id, 'preview');
+    return $this->_sendPreview($id, 'preview');
   }
 
   public function high($id) {
-    $this->_sendPreview($id, 'high');
+    return $this->_sendPreview($id, 'high');
   }
 
   public function hd($id) {
-    $this->_sendPreview($id, 'hd');
+    return $this->_sendPreview($id, 'hd');
   }
 
   public function video($id) {
     $filename = $this->_createFlashVideo($id);
-    $mediaOptions = $this->MyFile->getMediaViewOptions($filename);
-    $mediaOptions['download'] = true;
-    $this->viewClass = 'Media';
-    $this->set($mediaOptions);
+    $this->response->file($filename, array('download' => true));
+    return $this->response;
   }
 
   public function file($id) {
@@ -182,25 +175,23 @@ class MediaController extends AppController
     $file = $this->MyFile->findById($id);
     $user = $this->getUser();
     if (!$this->MyFile->hasMedia($file)) {
-      Logger::warn("User {$user['User']['id']} requested file {$file['File']['id']} without media");
+      CakeLog::warning("User {$user['User']['id']} requested file {$file['File']['id']} without media");
       $this->redirect(null, 404);
     }
-    if (!$this->Media->canReadOriginal($file, $user)) {
-      Logger::warn("User {$user['User']['id']} has no previleges to access image ".$file['Media']['id']);
+    $media = $this->Media->findById($file['Media']['id']);
+    if (!$this->Media->canReadOriginal($media, $user)) {
+      CakeLog::warning("User {$user['User']['id']} has no previleges to access file {$file['File']['id']} of media {$file['Media']['id']}");
       $this->redirect(null, 404);
     }
-    if ($this->Media->hasFlag($file, MEDIA_FLAG_DIRTY) && $this->getOption('filter.write.onDemand')) {
-      $media = $this->Media->findById($file['Media']['id']);
+    if ($this->Media->hasFlag($media, MEDIA_FLAG_DIRTY) && $this->getOption('filter.write.onDemand')) {
       $this->loadComponent('FilterManager');
       $this->FilterManager->write($media);
     }
-    Logger::info("Request of media {$file['Media']['id']}: file $id '{$file['File']['file']}'");
+    CakeLog::info("Request of media {$file['Media']['id']}: file $id '{$file['File']['file']}'");
     $filename = $this->MyFile->getFilename($file);
 
-    $mediaOptions = $this->MyFile->getMediaViewOptions($filename);
-    $mediaOptions['download'] = true;
-    $this->viewClass = 'Media';
-    $this->set($mediaOptions);
+    $this->response->file($filename, array('download' => true));
+    return $this->response;
   }
 
   /**
@@ -210,7 +201,7 @@ class MediaController extends AppController
    * @param format File format
    * @return array of file information (name, filename, size)
    */
-  public function _getMediaFiles($media, $format) {
+  private function _getMediaFiles($media, $format) {
     $files = array();
     if (!count($media['File'])) {
       return $files;
@@ -243,7 +234,7 @@ class MediaController extends AppController
           $files[] = array('name' => $format . '/' . $name, 'filename' => $filename, 'size' => filesize($filename));
         }
       } else if ($mediaType != MEDIA_TYPE_IMAGE) {
-        Logger::warn("Media type $mediaType for {$media['Media']['id']} is not suppored yet");
+        CakeLog::warning("Media type $mediaType for {$media['Media']['id']} is not suppored yet");
       } else {
         $filename = $this->PreviewManager->getPreview($media, $format);
         if (is_readable($filename)) {
@@ -261,7 +252,7 @@ class MediaController extends AppController
    * @param name Name of the zip file
    * @param files Array of files
    */
-  public function _createZipFile($name, $files) {
+  protected function _createZipFile($name, $files) {
     App::import('Vendor', 'ZipStream/ZipStream');
 
     ini_set('memory_limit', '51002M');
@@ -290,22 +281,22 @@ class MediaController extends AppController
       $this->redirect(null, 404, true);
     }
     if (!preg_match('/^\d+(,\d+)*$/', $this->request->data['Media']['ids'])) {
-      Logger::warn("Invalid id input: " . $this->request->data['Media']['ids']);
+      CakeLog::warning("Invalid id input: " . $this->request->data['Media']['ids']);
       $this->Session->setFlash("Invalid media ids");
       $this->redirect($redirectUrl);
     } else if (!in_array($format, array('mini', 'thumb', 'preview', 'high', 'hd', 'original'))) {
-      Logger::warn("Invalid format: $format");
+      CakeLog::warning("Invalid format: $format");
       $this->Session->setFlash("Unsupported download format: " + $format);
       $this->redirect($redirectUrl);
     }
     $ids = preg_split('/\s*,\s*/', trim($this->request->data['Media']['ids']));
     $ids = array_unique($ids);
     if ($this->hasRole(ROLE_GUEST) && count($ids) > BULK_DOWNLOAD_FILE_COUNT_USER) {
-      Logger::warn("Download of more than 240 media is not allowed");
+      CakeLog::warning("Download of more than 240 media is not allowed");
       $this->Session->setFlash(__("Download of more than %d media is not allowed", BULK_DOWNLOAD_FILE_COUNT_USER));
       $this->redirect($redirectUrl);
     } else if (!$this->hasRole(ROLE_GUEST) && count($ids) > BULK_DOWNLOAD_FILE_COUNT_ANONYMOUS) {
-      Logger::warn("Download of more than 12 media is not allowed for anonymous visitors");
+      CakeLog::warning("Download of more than 12 media is not allowed for anonymous visitors");
       $this->Session->setFlash(__("Download of more than %d media is not allowed for anonymous visitors", BULK_DOWNLOAD_FILE_COUNT_ANONYMOUS));
       $this->redirect($redirectUrl);
     }
@@ -313,8 +304,9 @@ class MediaController extends AppController
     $user = $this->getUser();
     $allMedia = $this->Media->find('all', array('conditions' => array('Media.id' => $ids)));
     $files = array();
+    $groupIds = $this->User->getAclGroupIds($user);
     foreach ($allMedia as $media) {
-      $this->Media->setAccessFlags($media, $user);
+      $this->Media->setAccessFlags($media, $user, $groupIds);
       if (!$media['Media']['canReadPreview']) {
         continue;
       }
@@ -326,13 +318,13 @@ class MediaController extends AppController
       $files = am($files, $this->_getMediaFiles($media, $fileFormat));
     }
     if (!count($files)) {
-      Logger::warn("No files for download");
+      CakeLog::warning("No files for download");
       $this->Session->setFlash(__("No files for download found for given media set"));
       $this->redirect($redirectUrl);
     }
     $sizes = Set::extract('/size', $files);
     if (array_sum($sizes) > BULK_DOWNLOAD_TOTAL_MB_LIMIT * 1024 * 1024) {
-      Logger::warn("Download of not more than " . BULK_DOWNLOAD_TOTAL_MB_LIMIT . " MB is not allowed");
+      CakeLog::warning("Download of not more than " . BULK_DOWNLOAD_TOTAL_MB_LIMIT . " MB is not allowed");
       $this->Session->setFlash(__("Download of not more than %d MB is not allowed", BULK_DOWNLOAD_TOTAL_MB_LIMIT));
       $this->redirect($redirectUrl);
     }
@@ -341,4 +333,3 @@ class MediaController extends AppController
     $this->_createZipFile($zipName, $files);
   }
 }
-?>

@@ -42,11 +42,12 @@ class CacheBehavior extends ModelBehavior
       $modelData = $modelData[$model->alias];
     }
     if (!isset($modelData['user_id']) || !isset($modelData['id'])) {
-      Logger::err("Precondition failed");
+      CakeLog::error("Precondition failed");
       return false;
     }
 
-    $cacheDir = USER_DIR.$modelData['user_id'].DS.'cache'.DS;
+    $homeDir = Configure::read('user.home.dir');
+    $cacheDir = $homeDir . $modelData['user_id'] . DS . 'cache' . DS;
     $cacheDir .= sprintf("%04d", ($modelData['id'] / 1000)).DS;
     if (!is_dir($cacheDir)) {
       return true;
@@ -57,16 +58,16 @@ class CacheBehavior extends ModelBehavior
     $folder = new Folder($cacheDir);
     $files = $folder->find($pattern);
     if (!$files) {
-      Logger::trace("No cache files found for media {$modelData['id']}");
+      CakeLog::debug("No cache files found for media {$modelData['id']}");
     } else {
       foreach ($files as $file) {
         if (!@unlink($folder->addPathElement($cacheDir, $file))) {
-          Logger::err("Could not delete cache file ".$folder->addPathElement($cacheDir, $file));
+          CakeLog::error("Could not delete cache file ".$folder->addPathElement($cacheDir, $file));
         } else {
-          Logger::trace("Deleted cache file '$file'");
+          CakeLog::debug("Deleted cache file '$file'");
         }
       }
-      Logger::debug("Deleted cache files of media {$modelData['id']}");
+      CakeLog::debug("Deleted cache files of media {$modelData['id']}");
     }
     return true;
   }

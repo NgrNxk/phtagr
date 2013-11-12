@@ -15,12 +15,12 @@
  * @license       GPL-2.0 (http://www.opensource.org/licenses/GPL-2.0)
  */
 
-App::uses('PhtagrTestCase', 'Test/Case');
+App::uses('AppTestCase', 'Test/Case');
 
 /**
  * Test read meta data nativly
  */
-class MediaReadGetId3TestCase extends PhtagrTestCase {
+class MediaReadGetId3TestCase extends AppTestCase {
 
   var $components = array('FilterManager');
   var $testDir;

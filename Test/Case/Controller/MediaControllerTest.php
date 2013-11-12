@@ -16,7 +16,8 @@
  * @license       GPL-2.0 (http://www.opensource.org/licenses/GPL-2.0)
  */
 
-App::uses('PhtagrTestCase', 'Test/Case');
+App::uses('AppTestCase', 'Test/Case');
+App::uses('AppController', 'Controller');
 App::uses('MediaController', 'Controller');
 
 class MediaTestController extends MediaController {
@@ -28,13 +29,13 @@ class MediaTestController extends MediaController {
     return $this->mockUser;
   }
 
-  function _createZipFile($name, $files) {
+  protected function _createZipFile($name, $files) {
     $this->zipContent = $files;
   }
 
 }
 
-class MediaControllerTest extends PhtagrTestCase {
+class MediaControllerTest extends AppTestCase {
 
 	var $uses = array('Media', 'Option');
 	var $components = array('FilterManager');

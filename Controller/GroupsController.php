@@ -43,8 +43,8 @@ class GroupsController extends AppController {
   }
 
   public function fail($type) {
-    Logger::err("The security component denied action {$this->action}. Reason: $type");
-    Logger::debug($this->request->data);
+    CakeLog::error("The security component denied action {$this->action}. Reason: $type");
+    CakeLog::debug(print_r($this->request->data, true));
     $this->redirect(null, '404');
   }
 
@@ -57,7 +57,7 @@ class GroupsController extends AppController {
     $userId = $this->getUserId();
     $this->Group->bindModel(array('hasOne' => array('GroupsUser' => array())));
     $this->request->data = $this->Group->find('all', array('conditions' => array('GroupsUser.user_id' => $userId)));
-    Logger::debug($this->request->data);
+    CakeLog::debug($this->request->data);
   }
 
   public function all() {
@@ -71,7 +71,7 @@ class GroupsController extends AppController {
 
 	function autocomplete() {
     if (!$this->RequestHandler->isAjax() || !$this->RequestHandler->isPost()) {
-      Logger::debug("Decline wrong ajax request");
+      CakeLog::debug("Decline wrong ajax request");
       $this->redirect(null, '404');
     }
     $user = $this->getUser();
@@ -104,7 +104,7 @@ class GroupsController extends AppController {
         $groupId = $this->Group->getLastInsertID();
         $group = $this->Group->findById($groupId);
         $user = $this->getUser();
-        Logger::info("User '{$user['User']['username']}' ({$user['User']['id']}) created group '{$group['Group']['name']}' ({$group['Group']['id']})");
+        CakeLog::info("User '{$user['User']['username']}' ({$user['User']['id']}) created group '{$group['Group']['name']}' ({$group['Group']['id']})");
         $this->Session->setFlash(__("Add successfully group '%s'", $this->request->data['Group']['name']));
         $this->redirect("view/{$group['Group']['name']}");
       } else {
@@ -113,16 +113,16 @@ class GroupsController extends AppController {
     }
   }
 
-  public function _createEmail() {
+  private function __createEmail() {
     $Email = new CakeEmail('default');
     $Email->helpers('Html');
     return $Email;
   }
 
-  public function _sendSubscribtionRequest($group) {
+  private function __sendSubscribtionRequest($group) {
     $user = $this->getUser();
 
-    $email = $this->_createEmail();
+    $email = $this->__createEmail();
     $email->template('group_subscribtion_request')
       ->to(array($group['User']['email'] => $group['User']['username']))
       ->subject("Group {$group['Group']['name']}: Subscription request for user {$user['User']['username']}")
@@ -130,18 +130,18 @@ class GroupsController extends AppController {
 
     try {
       $email->send();
-      Logger::info("Sent group subscribe request of user {$user['User']['username']} for group {$group['Group']['name']} to {$group['User']['username']}");
+      CakeLog::info("Sent group subscribe request of user {$user['User']['username']} for group {$group['Group']['name']} to {$group['User']['username']}");
       $this->Session->setFlash(__("Group subscription request was sent to the group owner"));
       return true;
     } catch (Exception $e) {
-      Logger::err(sprintf("Could not send group subscription request to {$group['User']['username']} <{$group['User']['email']}>"));
+      CakeLog::error(sprintf("Could not send group subscription request to {$group['User']['username']} <{$group['User']['email']}>"));
       $this->Session->setFlash(__('Mail could not be sent'));
       return false;
     }
   }
 
-  public function _sendConfirmation($group, $user) {
-    $email = $this->_createEmail();
+  private function __sendConfirmation($group, $user) {
+    $email = $this->__createEmail();
     $email->template('group_confirmation')
       ->to(array($user['User']['email'] => $user['User']['username']))
       ->subject("Group {$group['Group']['name']}: Your subscription was accepted")
@@ -149,18 +149,18 @@ class GroupsController extends AppController {
 
     try {
       $email->send();
-      Logger::info("Sent group confirmation to user {$user['User']['username']} for group {$group['Group']['name']}");
+      CakeLog::info("Sent group confirmation to user {$user['User']['username']} for group {$group['Group']['name']}");
       return true;
     } catch (Exception $e) {
-      Logger::err(sprintf("Could not send group confirmation to {$user['User']['username']} <{$user['User']['email']}>"));
+      CakeLog::error(sprintf("Could not send group confirmation to {$user['User']['username']} <{$user['User']['email']}>"));
       return false;
     }
   }
 
-  public function _sendSubscribtion($group) {
+  private function __sendSubscribtion($group) {
     $user = $this->getUser();
 
-    $email = $this->_createEmail();
+    $email = $this->__createEmail();
     $email->template('group_subscribtion')
       ->to(array($group['User']['email'] => $group['User']['username']))
       ->subject("Group {$group['Group']['name']}: Subscription request for user {$user['User']['username']}")
@@ -168,10 +168,10 @@ class GroupsController extends AppController {
 
     try {
       $email->send();
-      Logger::info("Sent new group subscribtion of user {$user['User']['username']} for group {$group['Group']['name']} to {$group['User']['username']}");
+      CakeLog::info("Sent new group subscribtion of user {$user['User']['username']} for group {$group['Group']['name']} to {$group['User']['username']}");
       return true;
     } catch (Exception $e) {
-      Logger::err(sprintf("Could not send new group subscription to {$group['User']['username']} <{$group['User']['email']}>"));
+      CakeLog::error(sprintf("Could not send new group subscription to {$group['User']['username']} <{$group['User']['email']}>"));
       return false;
     }
   }
@@ -179,7 +179,7 @@ class GroupsController extends AppController {
   public function _sendUnsubscribtion($group) {
     $user = $this->getUser();
 
-    $email = $this->_createEmail();
+    $email = $this->__createEmail();
     $email->template('group_unsubscribtion')
       ->to(array($group['User']['email'] => $group['User']['username']))
       ->subject("Group {$group['Group']['name']}: Subscription request for user {$user['User']['username']}")
@@ -187,10 +187,10 @@ class GroupsController extends AppController {
 
     try {
       $email->send();
-      Logger::info("Sent new group subscribtion of user {$user['User']['username']} for group {$group['Group']['name']} to {$group['User']['username']}");
+      CakeLog::info("Sent new group subscribtion of user {$user['User']['username']} for group {$group['Group']['name']} to {$group['User']['username']}");
       return true;
     } catch (Exception $e) {
-      Logger::err(sprintf("Could not send new group subscription to {$group['User']['username']} <{$group['User']['email']}>"));
+      CakeLog::error(sprintf("Could not send new group subscription to {$group['User']['username']} <{$group['User']['email']}>"));
       return false;
     }
   }
@@ -202,7 +202,7 @@ class GroupsController extends AppController {
       $this->redirect('index');
     }
     if ($group['Group']['is_moderated']) {
-      $this->_sendSubscribtionRequest($group);
+      $this->__sendSubscribtionRequest($group);
       $this->redirect("view/$name");
     } else {
       $result = $this->Group->subscribe($group, $this->getUserId());
@@ -211,7 +211,7 @@ class GroupsController extends AppController {
         $this->redirect("index");
       } else {
         if ($result['code'] == 201) {
-          $this->_sendSubscribtion($group);
+          $this->__sendSubscribtion($group);
         }
         $this->redirect("view/$name");
       }
@@ -231,7 +231,7 @@ class GroupsController extends AppController {
     if ($result['code'] >= 400 && $result['code'] < 500) {
       $this->redirect("index");
     } else {
-      $this->_sendConfirmation($group, $user);
+      $this->__sendConfirmation($group, $user);
       $this->Session->setFlash("Confirmed subscription of {$user['User']['username']}");
       $this->redirect("view/$groupName");
     }
@@ -316,8 +316,9 @@ class GroupsController extends AppController {
   }
 
   /**
-    @todo Reset all group information of image
-    @todo Check for permission! */
+   * @todo Reset all group information of image
+   * @todo Check for permission!
+   */
   public function delete($groupId) {
     $conditions = array('Group.id' => $groupId);
     if ($this->getUserRole() < ROLE_ADMIN) {
@@ -327,7 +328,7 @@ class GroupsController extends AppController {
     if ($group) {
       $this->Group->delete($groupId);
       $user = $this->getUser();
-      Logger::info("User '{$user['User']['username']}' ({$user['User']['id']}) deleted group '{$group['Group']['name']}' ({$group['Group']['id']})");
+      CakeLog::info("User '{$user['User']['username']}' ({$user['User']['id']}) deleted group '{$group['Group']['name']}' ({$group['Group']['id']})");
       $this->Session->setFlash(__("Successfully deleted group '%s'", $group['Group']['name']));
     } else {
       $this->Session->setFlash(__("Could not find group"));

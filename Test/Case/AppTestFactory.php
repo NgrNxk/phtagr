@@ -20,7 +20,7 @@ App::uses('Media', 'Model');
 /**
  * Factory for test data
  */
-class PhtagrTestFactory {
+class AppTestFactory {
   var $Media;
   var $User;
   var $Group;
@@ -40,6 +40,13 @@ class PhtagrTestFactory {
     $data = am(array('username' => $username, 'role' => $role), $options);
     $this->User->save($this->User->create($data));
     return $this->User->findById($this->User->getLastInsertID());
+  }
+
+  public function createFile($filename, $user, $options = array()) {
+    $data = array('path' => direname($filename), 'file' => basename($filename), 'user_id' => $user['User']['id']);
+    $data = $this->Media->File->create(am($data, $options));
+    $this->Media->File->save($data);
+    return $this->Media->File->findById($this->Media->File->getLastInsertID());
   }
 
   public function createMedia($name = null, $user = null, $options = array()) {
