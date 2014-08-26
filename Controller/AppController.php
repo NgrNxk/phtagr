@@ -30,6 +30,10 @@ class AppController extends Controller
    */
   public function beforeFilter() {
     parent::beforeFilter();
+
+    $this->Cookie->name = 'phtagr';
+    $this->Cookie->type('rijndael');
+
     $this->__checkSession();
     $this->Feed->add('/explorer/rss', array('title' => __('Recent photos')));
     $this->Feed->add('/explorer/media', array('title' =>  __('Media RSS of recent photos'), 'id' => 'gallery'));
@@ -93,10 +97,9 @@ class AppController extends Controller
   }
 
   private function __checkCookie() {
-    $this->Cookie->name = 'phTagr';
-    $id = $this->Cookie->read('user');
-    if (is_numeric($id)) {
-      return (int) $id;
+    $id = strval($this->Cookie->read('user'));
+    if (preg_match('/^\d+$/', $id)) {
+      return intval($id);
     } else {
       return false;
     }
@@ -144,7 +147,7 @@ class AppController extends Controller
     if ($keyUserId) {
       $userId = $keyUserId;
       $authType = 'AuthKey';
-    } else {
+    } else if ($this->Session->read('Session.requestCount') == 1) {
       $userId = $this->__checkCookie();
       $authType = 'Cookie';
     }
@@ -249,7 +252,12 @@ class AppController extends Controller
     if (!$parent) {
       $parent = $this;
     }
-    if (isset($parent->{$componentName})) {
+    $alias = $componentName;
+    if (strpos($alias, '.') > 0) {
+      $names = preg_split('/\./', $componentName);
+      $alias = $names[1];
+    }
+    if (isset($parent->{$alias})) {
       return true;
     }
     if (!in_array($componentName, $parent->components)) {
@@ -260,7 +268,7 @@ class AppController extends Controller
       CakeLog::warning("Could not load component $componentName");
       return false;
     }
-    $parent->{$componentName} = $component;
+    $parent->{$alias} = $component;
     // Load components recusivly
     if (is_array($component->components)) {
       $this->loadComponent($component->components, $component);
