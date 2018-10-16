@@ -44,13 +44,13 @@ class SearchComponent extends Component
     'east' => array('rule' => array('custom', '/-?\d+(\.\d+)?/')),
     'exclude_user' => 'numeric',
     'from' => array('rule' => array('custom', '/^\d{4}(-\d{2}(-\d{2}([ T]\d{2}(:\d{2}(:\d{2})?)?)?)?)?$/')),
-    'folder' => 'notEmpty',
-    'field_value' => array('rule' => array('notEmpty'), 'multiple' => true),
-    'group' => 'notEmpty',
+    'folder' => 'notBlank',
+    'field_value' => array('rule' => array('notBlank'), 'multiple' => true),
+    'group' => 'notBlank',
     'geo' => array('rule' => array('inList', array('any', 'none'))),
     'key' => false,
     'media' => 'numeric',
-    'name' => 'notEmpty',
+    'name' => 'notBlank',
     'north' => array('rule' => array('custom', '/-?\d+(\.\d+)?/')),
     'location' => array('rule' => array('maxLength', 30), 'multiple' => true),
     'operand' => array('rule' => array('inList', array('AND', 'OR'))),
@@ -65,8 +65,8 @@ class SearchComponent extends Component
     'tag' => array('rule' => array('maxLength', 30), 'multiple' => true),
     'to' => array('rule' => array('custom', '/^\d{4}(-\d{2}(-\d{2}([ T]\d{2}(:\d{2}(:\d{2})?)?)?)?)?$/')),
     'type' => array('rule' => array('inList', array('image', 'video'))),
-    'user' => 'notEmpty',
-    'users' => 'notEmpty',
+    'user' => 'notBlank',
+    'users' => 'notBlank',
     'view' => array('rule' => array('inList', array('default', 'compact', 'small'))),
     'west' => array('rule' => array('custom', '/-?\d+(\.\d+)?/')),
     'visibility' => array('rule' => array('inList', array('private', 'group', 'user', 'public'))),
@@ -469,7 +469,7 @@ class SearchComponent extends Component
   public function urlToCrumbs($url, $skip = 2) {
     // We need '+' sign for search inclusion
     $url = str_replace('+', '%2B', $url);
-    $parts = split('/', trim(urldecode($url), '/'));
+    $parts = explode('/', trim(urldecode($url), '/'));
     $encoded = array_splice($parts, $skip);
     $crumbs = array();
     foreach ($encoded as $crumb) {
@@ -532,7 +532,7 @@ class SearchComponent extends Component
       $type = Inflector::singularize($match[1]);
       $value = $match[2];
       if (in_array($type, $this->listTerms)) {
-        $values = split(',', $value);
+        $values = explode(',', $value);
         foreach ($values as $value) {
           $this->addParam($type, $value);
         }

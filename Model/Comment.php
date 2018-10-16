@@ -12,11 +12,11 @@ class Comment extends AppModel {
   var $currentUser = array();
 
   var $validate = array(
-    'name' => array('rule' => 'notEmpty', 'message' => 'Name is missing'),
+    'name' => array('rule' => 'notBlank', 'message' => 'Name is missing'),
     'email' => array('rule' => 'email', 'message' => 'Email is invalid'),
     'url' => array('rule' => 'url', 'message' => 'URL is invalid', 'required' => false, 'allowEmpty' => true),
     'text' => array(
-      'empty' => array('rule' => 'notEmpty', 'message' => 'Comment text is empty'),
+      'empty' => array('rule' => 'notBlank', 'message' => 'Comment text is empty'),
       'max' => array('rule' => array('maxLength', 2048), 'message' => 'Comment is to long')
       )
     );

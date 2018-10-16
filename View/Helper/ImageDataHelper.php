@@ -264,7 +264,7 @@ class ImageDataHelper extends AppHelper {
     } elseif ($option == 'addFrom' && $this->Search->getTo()) {
       $from = $date;
       $to = $this->Search->getTo();
-    } elseif (preg_match('/^(\d+(.\d+)?)([hdm])$/', $option, $matches)) {
+    } elseif (preg_match('/^(\d+)(.\d+)?([hdm])$/', $option, $matches)) {
       $offset = $matches[1].$matches[2];
       switch ($matches[3]) {
         case 'h':

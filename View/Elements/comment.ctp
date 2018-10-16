@@ -33,7 +33,7 @@
 <?php endif; /* has comments */ ?>
 
 <h3><?php echo __("Add new Comment"); ?></h3>
-<?php echo $this->Form->create('Comment', array('action' => 'add/'.$this->SearchParams, 'id' => 'comment-add')); ?>
+<?php echo $this->Form->create('Comment', array('url' => array ('controller' => 'comments', 'action' => 'add/'.$this->SearchParams), 'id' => 'comment-add')); ?>
 <fieldset>
 <?php
   echo $this->Form->hidden('Media.id', array('value' => $this->request->data['Media']['id']));
